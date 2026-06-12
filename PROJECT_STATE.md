@@ -80,7 +80,11 @@ Each card contains: word · image · example sentence in context · American aud
 |---|------|---------|-------|
 | 001 | initial_schema | 2026-06-12 | profiles, words, user_word_progress + RLS + triggers |
 | 002 | fix_function_security | 2026-06-12 | Hardened set_updated_at search_path; revoked handle_new_user from anon+authenticated |
-| 003 | fix_handle_new_user_permissions | 2026-06-12 | Revoked handle_new_user from PUBLIC — clears REST API exposure warning |
+| 004 | autowire_extensions_and_relay | 2026-06-12 | pg_net + pg_cron extensions; relay table with RLS (service-role only) |
+| 005 | autowire_finalize_function | 2026-06-12 | relay_autowire_finalize() — PR verification logic |
+| 006 | autowire_orchestrator | 2026-06-12 | relay_autowire_tick() — cron orchestrator; v_repo = Romlun/FluentForge |
+| 007 | autowire_cron_and_lockdown | 2026-06-12 | Cron scheduled (every minute); revoked public execute on both functions |
+| 008 | autowire_revoke_public_execute | 2026-06-12 | Explicit revoke from anon+authenticated+public — clears security advisors |
 
 ---
 
@@ -93,6 +97,7 @@ Each card contains: word · image · example sentence in context · American aud
 - [x] Define initial data model + first migration (migrations 001–003, 2026-06-12)
 - [x] Auth — signup, login, email confirmation, protected dashboard (commit b8bb27e)
 - [ ] GitHub Actions CI (lint + type-check) — deferred, not blocking
+- [ ] Autowire relay: CLAUDE.md + cody-build.yml workflow + branch ruleset + PATs in Vault (Part A in progress)
 
 ## Parked / Paused
 _None._
@@ -106,12 +111,17 @@ _None banked yet._
 
 ### Standing Decisions
 - **SD-001:** UI language is English-only. i18n deferred until core is solid.
-- **SD-002:** Anthropic model selection — use Sonnet 4.6 by default for all
-  real-time/interactive AI features (grammar explanations, exercise generation,
-  pronunciation feedback, evaluating user responses). Use Opus 4.8 only for
-  offline/batch work where quality is critical and latency doesn't matter:
-  generating the word bank, writing example sentences, seeding content.
+- **SD-002:** Anthropic model selection — Sonnet 4.6 by default for all real-time/interactive
+  AI features (grammar explanations, exercise generation, pronunciation feedback, evaluating
+  user responses). Opus 4.8 only for offline/batch work where quality is critical and latency
+  doesn't matter: generating the word bank, writing example sentences, seeding content.
   Model constants live in src/lib/ai/models.ts — never hardcode model strings inline.
+- **SD-003:** Autowire relay system active. Director dispatches Claude Code via SQL insert
+  into relay + net.http_post to GitHub repository_dispatch (event: cody-build). pg_cron ticks
+  every minute, finds PR by relay UUID in body, writes verified/rejected verdict. Director NEVER
+  merges — operator merges via Safari only. Vault secrets: gh_read_token (Contents+PR+Actions:Read),
+  gh_dispatch_token (Contents:Write). Workflow: .github/workflows/cody-build.yml.
+  CLAUDE.md in repo root sets Cody's standing rules.
 
 ### Pre-Approved Bundles
 _None yet._

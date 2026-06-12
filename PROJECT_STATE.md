@@ -90,8 +90,9 @@ Each card contains: word · image · example sentence in context · American aud
 - [x] Create Vercel project + link to GitHub (commit b08dc94)
 - [x] Wire env vars (Vercel + local .env.local)
 - [x] Install + configure Supabase client in src/lib/supabase/ (commit 568edf9)
-- [ ] Set up GitHub Actions CI (lint + type-check)
 - [x] Define initial data model + first migration (migrations 001–003, 2026-06-12)
+- [x] Auth — signup, login, email confirmation, protected dashboard (commit b8bb27e)
+- [ ] GitHub Actions CI (lint + type-check) — deferred, not blocking
 
 ## Parked / Paused
 _None._

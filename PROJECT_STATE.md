@@ -100,7 +100,11 @@ Each card contains: word · image · example sentence in context · American aud
 - [ ] Autowire relay: CLAUDE.md + cody-build.yml workflow + branch ruleset + PATs in Vault (Part A in progress)
 
 ## Parked / Paused
-_None._
+- **Headroom token compression** (https://github.com/chopratejas/headroom) — compress
+  tool outputs/file reads before they hit the LLM. 60-95% fewer tokens. Plug in at two
+  points: (1) Cody's cody-build.yml Action to compress repo file reads; (2) Director side
+  via Desktop Commander to compress large file reads. Low urgency while codebase is small;
+  revisit when Cody starts hitting context pressure on multi-file tasks.
 
 ---
 

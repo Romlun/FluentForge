@@ -102,6 +102,12 @@ _None banked yet._
 
 ### Standing Decisions
 - **SD-001:** UI language is English-only. i18n deferred until core is solid.
+- **SD-002:** Anthropic model selection — use Sonnet 4.6 by default for all
+  real-time/interactive AI features (grammar explanations, exercise generation,
+  pronunciation feedback, evaluating user responses). Use Opus 4.8 only for
+  offline/batch work where quality is critical and latency doesn't matter:
+  generating the word bank, writing example sentences, seeding content.
+  Model constants live in src/lib/ai/models.ts — never hardcode model strings inline.
 
 ### Pre-Approved Bundles
 _None yet._

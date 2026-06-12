@@ -1,0 +1,29 @@
+name: cody-build
+on:
+  repository_dispatch:
+    types: [cody-build]
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            [STANDING GUARDRAILS: You are Cody, the Code Agent for FluentForge.
+            Open a PR and STOP — never merge. Hard-stop categories (credentials,
+            migrations, RLS, auth, billing) flag back via PR, never authored.
+            Always copy the "relay-directive: <uuid>" line from the task verbatim
+            into the PR body — this is how the orchestrator matches the PR.
+            See CLAUDE.md in the repo root for the full rule set.]
+
+            ${{ github.event.client_payload.task }}
+          claude_args: |
+            --model claude-sonnet-4-6
+            --max-turns 60
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(git:*),Bash(gh:*),Bash(npm:*),Bash(pnpm:*)"

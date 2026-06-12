@@ -59,14 +59,19 @@ Each card contains: word · image · example sentence in context · American aud
 
 ## Infra State
 
-| Resource         | Status                                        |
-|------------------|-----------------------------------------------|
-| GitHub repo      | ✅ https://github.com/Romlun/FluentForge      |
-| Next.js scaffold | ✅ v16.2.9 + React 19 + TS strict + shadcn/ui |
-| Supabase project | ❌ Not created                                |
-| Vercel project   | ❌ Not created                                |
-| Domain           | ❌ Not set                                    |
-| GitHub Actions   | ❌ Not configured                             |
+| Resource              | Status                                                          |
+|-----------------------|-----------------------------------------------------------------|
+| GitHub repo           | ✅ https://github.com/Romlun/FluentForge                       |
+| Next.js scaffold      | ✅ v16.2.9 + React 19 + TS strict + shadcn/ui (commit 9cf2177) |
+| Supabase project      | ✅ fluentforge · ref: qbmwruehpcwebtawgejt · us-west-1         |
+| Vercel project        | ✅ fluent-forge · prj_OFdZ54pA8jRLCt8uiScwK7PbYE9L            |
+| Vercel production URL | ✅ https://fluent-forge-black.vercel.app                       |
+| Vercel linked in repo | ✅ .vercel/project.json committed (commit b08dc94)             |
+| Env vars — Vercel     | ✅ NEXT_PUBLIC_SUPABASE_URL + ANON_KEY (all envs)              |
+|                       | ✅ SUPABASE_SERVICE_ROLE_KEY + ANTHROPIC_API_KEY (prod+preview)|
+| Env vars — local      | ✅ .env.local on operator Mac (all 4 vars filled)              |
+| GitHub Actions CI     | ❌ Not configured                                              |
+| Domain                | ❌ Not set                                                     |
 
 ---
 
@@ -77,10 +82,13 @@ _No migrations applied yet._
 
 ## In-Flight Work
 - [x] Scaffold Next.js project (commit 9cf2177)
-- [ ] Create Supabase project + configure Auth
-- [ ] Create Vercel project + link to GitHub repo
+- [x] Create Supabase project (ref: qbmwruehpcwebtawgejt)
+- [x] Create Vercel project + link to GitHub (commit b08dc94)
+- [x] Wire env vars (Vercel + local .env.local)
+- [ ] Install + configure Supabase client in src/lib/supabase/
 - [ ] Set up GitHub Actions CI (lint + type-check)
 - [ ] Define initial data model (users, words, decks, progress, sessions)
+- [ ] First Supabase migration
 
 ## Parked / Paused
 _None._
@@ -126,7 +134,9 @@ _TBD — defined when Supabase Auth is first configured._
 **Session 1 — 2026-06-12:**
 New app. Named FluentForge (gamified American English learning). Repo created
 at https://github.com/Romlun/FluentForge. PROJECT_STATE.md bootstrapped via
-Desktop Commander. Next.js 16 + React 19 + shadcn/ui scaffolded by Code Agent
-(commit 9cf2177). Product vision defined: spaced-rep vocab (Britlex-inspired
-logic, American pronunciation), + grammar/listening/pronunciation modules +
-game layer. Next: Supabase project, Vercel project, GitHub Actions CI, data model.
+Desktop Commander. Next.js 16 + React 19 + shadcn/ui scaffolded (commit 9cf2177).
+Product vision defined: Britlex-inspired spaced-rep vocab with American pronunciation,
++ grammar/listening/pronunciation modules + game layer. Supabase project created
+(qbmwruehpcwebtawgejt, us-west-1). Vercel project created + linked (commit b08dc94),
+production URL: https://fluent-forge-black.vercel.app. All env vars wired.
+Next: Supabase client setup, GitHub Actions CI, data model + first migration.

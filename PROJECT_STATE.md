@@ -76,7 +76,11 @@ Each card contains: word · image · example sentence in context · American aud
 ---
 
 ## Migration Ledger
-_No migrations applied yet._
+| # | Name | Applied | Notes |
+|---|------|---------|-------|
+| 001 | initial_schema | 2026-06-12 | profiles, words, user_word_progress + RLS + triggers |
+| 002 | fix_function_security | 2026-06-12 | Hardened set_updated_at search_path; revoked handle_new_user from anon+authenticated |
+| 003 | fix_handle_new_user_permissions | 2026-06-12 | Revoked handle_new_user from PUBLIC — clears REST API exposure warning |
 
 ---
 
@@ -85,10 +89,9 @@ _No migrations applied yet._
 - [x] Create Supabase project (ref: qbmwruehpcwebtawgejt)
 - [x] Create Vercel project + link to GitHub (commit b08dc94)
 - [x] Wire env vars (Vercel + local .env.local)
-- [ ] Install + configure Supabase client in src/lib/supabase/
+- [x] Install + configure Supabase client in src/lib/supabase/ (commit 568edf9)
 - [ ] Set up GitHub Actions CI (lint + type-check)
-- [ ] Define initial data model (users, words, decks, progress, sessions)
-- [ ] First Supabase migration
+- [x] Define initial data model + first migration (migrations 001–003, 2026-06-12)
 
 ## Parked / Paused
 _None._

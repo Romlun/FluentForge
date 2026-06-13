@@ -96,7 +96,13 @@ export default function VocabularyPage() {
         ...prev,
         [currentWord.id]: { status: 'learning', step: 0 },
       }))
-      setTodayCount((prev) => prev + 1)
+      const newCount = todayCount + 1
+      setTodayCount(newCount)
+      
+      if (newCount < dailyLimit) {
+        handleNext()
+        setIsFlipped(false)
+      }
     } catch (err) {
       console.error('Failed to add word:', err)
     } finally {
@@ -113,6 +119,8 @@ export default function VocabularyPage() {
         ...prev,
         [currentWord.id]: { status: 'known', step: 0 },
       }))
+      handleNext()
+      setIsFlipped(false)
     } catch (err) {
       console.error('Failed to mark word as known:', err)
     } finally {
@@ -165,6 +173,10 @@ export default function VocabularyPage() {
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-3xl mx-auto space-y-6">
+        <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ChevronLeft className="w-4 h-4" />
+          Dashboard
+        </Link>
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-3xl font-bold">Vocabulary</h1>
           <div className="flex items-center gap-4">

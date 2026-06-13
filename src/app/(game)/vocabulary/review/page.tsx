@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { ChevronLeft } from 'lucide-react'
 import { getDueWords, rateWord } from '../actions'
 import type { WordWithProgress } from '../actions'
 
@@ -103,6 +104,10 @@ export default function ReviewPage() {
     return (
       <main className="min-h-screen p-8">
         <div className="max-w-3xl mx-auto space-y-6">
+          <Link href="/vocabulary" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+            Vocabulary
+          </Link>
           <h1 className="text-3xl font-bold">Review</h1>
           <Card className="p-8 text-center">
             <p className="text-muted-foreground">Loading review session...</p>
@@ -116,6 +121,10 @@ export default function ReviewPage() {
     return (
       <main className="min-h-screen p-8">
         <div className="max-w-3xl mx-auto space-y-6">
+          <Link href="/vocabulary" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+            Vocabulary
+          </Link>
           <h1 className="text-3xl font-bold">Review</h1>
           <Card className="p-8 text-center">
             <p className="text-destructive">{error}</p>
@@ -144,6 +153,10 @@ export default function ReviewPage() {
     return (
       <main className="min-h-screen p-8">
         <div className="max-w-3xl mx-auto space-y-6">
+          <Link href="/vocabulary" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+            Vocabulary
+          </Link>
           <h1 className="text-3xl font-bold">Review</h1>
           <Card className="p-12 text-center space-y-4">
             <p className="text-2xl font-bold">Nothing due right now 🎉</p>
@@ -169,6 +182,10 @@ export default function ReviewPage() {
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-3xl mx-auto space-y-6">
+        <Link href="/vocabulary" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ChevronLeft className="w-4 h-4" />
+          Vocabulary
+        </Link>
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Review</h1>
           <p className="text-sm text-muted-foreground">

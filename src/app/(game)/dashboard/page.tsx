@@ -19,6 +19,11 @@ export default async function DashboardPage() {
               Vocabulary
             </Button>
           </Link>
+          <Link href="/vocabulary/review">
+            <Button variant="outline" className="w-full justify-start">
+              Review
+            </Button>
+          </Link>
         </div>
 
         <form action={logout}>

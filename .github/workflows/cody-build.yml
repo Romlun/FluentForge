@@ -11,9 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: anthropics/claude-code-action@v1
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-base-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: ${{ github.event.client_payload.task }}
-          claude_args: --max-turns 60 --model claude-sonnet-4-6
+          allowed_tools: "Bash(git:*),Bash(gh:*),Bash(pnpm:*),View,GlobTool,GrepTool,Edit,Write"
+          claude_env: |
+            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

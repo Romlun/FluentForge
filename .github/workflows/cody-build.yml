@@ -20,3 +20,4 @@ jobs:
           allowed_tools: "Bash(git:*),Bash(gh:*),Bash(pnpm:*),View,GlobTool,GrepTool,Edit,Write"
           claude_env: |
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            ANTHROPIC_MODEL: claude-haiku-4-5-20251001

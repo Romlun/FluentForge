@@ -9,15 +9,22 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Configure git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
       - uses: anthropics/claude-code-base-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: ${{ github.event.client_payload.task }}
           allowed_tools: "Bash(git:*),Bash(gh:*),Bash(pnpm:*),View,GlobTool,GrepTool,Edit,Write"
           claude_env: |
-            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             ANTHROPIC_MODEL: claude-haiku-4-5-20251001

@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,10 +8,27 @@ import type { Word } from '@/types'
 
 interface FlashCardProps {
   word: Word
+  isFlipped?: boolean
+  onFlip?: (flipped: boolean) => void
+  currentStatus?: { status: 'learning' | 'known'; step: number }
+  onAddWord?: () => Promise<void>
+  onMarkKnown?: () => Promise<void>
+  isActionLoading?: boolean
+  isQuotaFull?: boolean
 }
 
-export function FlashCard({ word }: FlashCardProps) {
-  const [isFlipped, setIsFlipped] = useState(false)
+export function FlashCard({
+  word,
+  isFlipped: externalIsFlipped = false,
+  onFlip,
+  currentStatus,
+  onAddWord,
+  onMarkKnown,
+  isActionLoading = false,
+  isQuotaFull = false,
+}: FlashCardProps) {
+  const isFlipped = externalIsFlipped
+  const setIsFlipped = onFlip || (() => {})
 
   return (
     <div
@@ -96,6 +112,43 @@ export function FlashCard({ word }: FlashCardProps) {
               ) : (
                 <div className="w-full aspect-video bg-muted rounded-lg flex items-center justify-center">
                   <p className="text-muted-foreground text-sm">No image available</p>
+                </div>
+              )}
+
+              {!currentStatus && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="flex-1"
+                    onClick={onAddWord}
+                    disabled={isActionLoading || isQuotaFull}
+                  >
+                    {isQuotaFull ? 'Daily limit reached' : 'Add to learn'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={onMarkKnown}
+                    disabled={isActionLoading}
+                  >
+                    I know this
+                  </Button>
+                </div>
+              )}
+
+              {currentStatus && (
+                <div className="flex justify-center">
+                  {currentStatus.status === 'learning' ? (
+                    <Badge variant="secondary" className="text-xs">
+                      Learning · Step {currentStatus.step}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs">
+                      Known
+                    </Badge>
+                  )}
                 </div>
               )}
             </div>

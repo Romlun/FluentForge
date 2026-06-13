@@ -7,7 +7,7 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   return (
-    <main className="min-h-screen p-8">
+    <main className="min-h-screen p-4 sm:p-8">
       <div className="max-w-2xl mx-auto space-y-6">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">Signed in as {user?.email}</p>

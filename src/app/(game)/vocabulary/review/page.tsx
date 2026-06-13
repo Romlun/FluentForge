@@ -102,11 +102,11 @@ export default function ReviewPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen p-8">
+      <main className="min-h-screen p-4 sm:p-8">
         <div className="max-w-3xl mx-auto space-y-6">
-          <Link href="/vocabulary" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ChevronLeft className="w-4 h-4" />
-            Vocabulary
+            Dashboard
           </Link>
           <h1 className="text-3xl font-bold">Review</h1>
           <Card className="p-8 text-center">
@@ -119,11 +119,11 @@ export default function ReviewPage() {
 
   if (error) {
     return (
-      <main className="min-h-screen p-8">
+      <main className="min-h-screen p-4 sm:p-8">
         <div className="max-w-3xl mx-auto space-y-6">
-          <Link href="/vocabulary" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ChevronLeft className="w-4 h-4" />
-            Vocabulary
+            Dashboard
           </Link>
           <h1 className="text-3xl font-bold">Review</h1>
           <Card className="p-8 text-center">
@@ -151,11 +151,11 @@ export default function ReviewPage() {
     }
 
     return (
-      <main className="min-h-screen p-8">
+      <main className="min-h-screen p-4 sm:p-8">
         <div className="max-w-3xl mx-auto space-y-6">
-          <Link href="/vocabulary" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ChevronLeft className="w-4 h-4" />
-            Vocabulary
+            Dashboard
           </Link>
           <h1 className="text-3xl font-bold">Review</h1>
           <Card className="p-12 text-center space-y-4">
@@ -180,11 +180,11 @@ export default function ReviewPage() {
   const remaining = state.queue.length - state.currentIndex
 
   return (
-    <main className="min-h-screen p-8">
+    <main className="min-h-screen p-4 sm:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
-        <Link href="/vocabulary" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ChevronLeft className="w-4 h-4" />
-          Vocabulary
+          Dashboard
         </Link>
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Review</h1>

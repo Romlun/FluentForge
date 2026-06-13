@@ -130,7 +130,7 @@ export default function VocabularyPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen p-8">
+      <main className="min-h-screen p-4 sm:p-8">
         <div className="max-w-3xl mx-auto space-y-6">
           <h1 className="text-3xl font-bold">Vocabulary</h1>
           <WordSkeleton />
@@ -141,7 +141,7 @@ export default function VocabularyPage() {
 
   if (error) {
     return (
-      <main className="min-h-screen p-8">
+      <main className="min-h-screen p-4 sm:p-8">
         <div className="max-w-3xl mx-auto space-y-6">
           <h1 className="text-3xl font-bold">Vocabulary</h1>
           <Card className="p-8 text-center">
@@ -154,7 +154,7 @@ export default function VocabularyPage() {
 
   if (words.length === 0) {
     return (
-      <main className="min-h-screen p-8">
+      <main className="min-h-screen p-4 sm:p-8">
         <div className="max-w-3xl mx-auto space-y-6">
           <h1 className="text-3xl font-bold">Vocabulary</h1>
           <Card className="p-12 text-center">
@@ -171,7 +171,7 @@ export default function VocabularyPage() {
   const currentStatus = wordStatuses[currentWord?.id]
 
   return (
-    <main className="min-h-screen p-8">
+    <main className="min-h-screen p-4 sm:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
         <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ChevronLeft className="w-4 h-4" />

@@ -186,8 +186,8 @@ export async function getDueWords(): Promise<WordWithProgress[]> {
       lapses: row.lapses,
       created_at: row.created_at,
     },
-    word: row.word,
-  })) as WordWithProgress[]
+    word: (Array.isArray(row.word) ? row.word[0] : row.word) as WordWithProgress["word"],
+  })) as unknown as WordWithProgress[]
 }
 
 export async function getWordStatuses(): Promise<

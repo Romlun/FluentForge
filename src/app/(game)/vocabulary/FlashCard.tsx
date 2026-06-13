@@ -52,8 +52,15 @@ export function FlashCard({ word }: FlashCardProps) {
           <Card className="w-full h-full flex flex-col p-8 gap-4 overflow-y-auto">
             <div className="space-y-4 flex-1">
               <div>
-                <p className="text-2xl font-semibold">{word.definition}</p>
+                <p className="text-3xl font-bold">
+                  {word.translation && word.translation.trim() ? word.translation : word.definition}
+                </p>
               </div>
+              {(word.translation && word.translation.trim()) && (
+                <div>
+                  <p className="text-base text-muted-foreground">{word.definition}</p>
+                </div>
+              )}
               {word.example_sentence && (
                 <div>
                   <p className="text-muted-foreground italic">

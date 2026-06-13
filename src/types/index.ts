@@ -13,4 +13,5 @@ export interface Word {
   phonetic: string | null
   tags: string[]
   created_at: string
+  translation?: string | null
 }

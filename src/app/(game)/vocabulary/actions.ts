@@ -177,15 +177,10 @@ export async function getReviewOptions(
   const normalizedCorrect = correctTranslation.trim()
 
   // One random query is enough at this table size; overfetch guards against duplicate translations.
-  const { data, error } = await supabase
-    .from('words')
-    .select('translation')
-    .neq('id', wordId)
-    .not('translation', 'is', null)
-    .neq('translation', '')
-    .neq('translation', normalizedCorrect)
-    .order('random()')
-    .limit(12)
+  const { data, error } = await supabase.rpc('get_random_distractor_translations', {
+    exclude_word_id: wordId,
+    exclude_translation: normalizedCorrect,
+  })
 
   if (error) throw error
 

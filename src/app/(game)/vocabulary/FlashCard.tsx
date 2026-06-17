@@ -1,15 +1,13 @@
 'use client'
 
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Volume2 } from 'lucide-react'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { Bookmark, Volume2 } from 'lucide-react'
 import type { Word } from '@/types'
+import { cn } from '@/lib/utils'
 
 interface FlashCardProps {
   word: Word
-  isFlipped?: boolean
-  onFlip?: (flipped: boolean) => void
   currentStatus?: { status: 'learning' | 'known'; step: number }
   onAddWord?: () => Promise<void>
   onMarkKnown?: () => Promise<void>
@@ -19,141 +17,99 @@ interface FlashCardProps {
 
 export function FlashCard({
   word,
-  isFlipped: externalIsFlipped = false,
-  onFlip,
   currentStatus,
   onAddWord,
   onMarkKnown,
   isActionLoading = false,
   isQuotaFull = false,
 }: FlashCardProps) {
-  const isFlipped = externalIsFlipped
-  const setIsFlipped = onFlip || (() => {})
+  const handlePlay = () => {
+    if (word.audio_url) {
+      new Audio(word.audio_url).play().catch(() => {})
+    }
+  }
 
   return (
-    <div
-      className="h-96 w-full cursor-pointer perspective"
-      onClick={() => setIsFlipped(!isFlipped)}
-    >
-      <div
-        className="relative w-full h-full transition-transform duration-300"
-        style={{
-          transformStyle: 'preserve-3d',
-          transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-        }}
+    <div className="rounded-2xl border bg-card overflow-hidden relative">
+      {/* Bookmark — visual only, no bookmark concept in DB yet */}
+      <button
+        type="button"
+        className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+        aria-label="Bookmark"
+        tabIndex={-1}
       >
-        {/* Front of card */}
-        <div
-          className="absolute w-full h-full"
-          style={{ backfaceVisibility: 'hidden' }}
-        >
-          <Card className="w-full h-full flex flex-col items-center justify-center p-8 gap-4">
-            <div className="text-center space-y-2">
-              <h2 className="text-4xl font-bold">{word.word}</h2>
-              {word.phonetic && (
-                <p className="text-sm text-muted-foreground">{word.phonetic}</p>
-              )}
-            </div>
-            {word.part_of_speech && (
-              <Badge variant="secondary">{word.part_of_speech}</Badge>
+        <Bookmark className="size-5" />
+      </button>
+
+      {/* Word, phonetic, PoS, audio */}
+      <div className="px-6 pt-6 pb-4 text-center space-y-1.5">
+        <h2 className="font-display text-4xl font-bold tracking-tight">{word.word}</h2>
+        {word.phonetic && (
+          <p className="text-sm text-muted-foreground">{word.phonetic}</p>
+        )}
+        <div className="flex items-center justify-center gap-2 pt-1">
+          {word.part_of_speech && (
+            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize text-muted-foreground">
+              {word.part_of_speech}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handlePlay}
+            disabled={!word.audio_url}
+            className={cn(
+              'flex items-center justify-center size-7 rounded-full transition-colors',
+              word.audio_url
+                ? 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                : 'text-muted-foreground/40 cursor-default'
             )}
-          </Card>
+            aria-label={word.audio_url ? 'Play pronunciation' : 'Audio unavailable'}
+          >
+            <Volume2 className="size-4" />
+          </button>
         </div>
+      </div>
 
-        {/* Back of card */}
-        <div
-          className="absolute w-full h-full"
-          style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
-        >
-          <Card className="w-full h-full flex flex-col p-8 gap-4 overflow-y-auto">
-            <div className="space-y-4 flex-1">
-              <div>
-                <p className="text-3xl font-bold">
-                  {word.translation && word.translation.trim() ? word.translation : word.definition}
-                </p>
-              </div>
-              {(word.translation && word.translation.trim()) && (
-                <div>
-                  <p className="text-base text-muted-foreground">{word.definition}</p>
-                </div>
-              )}
-              {word.example_sentence && (
-                <div>
-                  <p className="text-muted-foreground italic">
-                    {word.example_sentence}
-                  </p>
-                </div>
-              )}
-            </div>
+      <div className="mx-6 border-t" />
 
-            <div className="space-y-3 pt-4 border-t">
-              {word.audio_url ? (
-                <a href={word.audio_url} target="_blank" rel="noopener noreferrer">
-                  <Button variant="outline" size="sm" className="w-full">
-                    <Volume2 className="w-4 h-4 mr-2" />
-                    Listen
-                  </Button>
-                </a>
-              ) : (
-                <Button variant="outline" size="sm" disabled className="w-full">
-                  <Volume2 className="w-4 h-4 mr-2" />
-                  Audio unavailable
-                </Button>
-              )}
+      {/* Translation, definition, example */}
+      <div className="px-6 py-4 text-center space-y-2">
+        {word.translation && word.translation.trim() && (
+          <p className="text-xl font-bold">{word.translation}</p>
+        )}
+        <p className="text-sm text-muted-foreground">{word.definition}</p>
+        {word.example_sentence && (
+          <p className="text-sm text-muted-foreground italic">
+            &ldquo;{word.example_sentence}&rdquo;
+          </p>
+        )}
+      </div>
 
-              {word.image_url ? (
-                <div className="w-full aspect-video bg-muted rounded-lg overflow-hidden">
-                  <img
-                    src={word.image_url}
-                    alt={word.word}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="w-full aspect-video bg-muted rounded-lg flex items-center justify-center">
-                  <p className="text-muted-foreground text-sm">No image available</p>
-                </div>
-              )}
-
-              {!currentStatus && (
-                <div className="flex gap-2">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="flex-1"
-                    onClick={onAddWord}
-                    disabled={isActionLoading || isQuotaFull}
-                  >
-                    {isQuotaFull ? 'Daily limit reached' : 'Add to learn'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={onMarkKnown}
-                    disabled={isActionLoading}
-                  >
-                    I know this
-                  </Button>
-                </div>
-              )}
-
-              {currentStatus && (
-                <div className="flex justify-center">
-                  {currentStatus.status === 'learning' ? (
-                    <Badge variant="secondary" className="text-xs">
-                      Learning · Step {currentStatus.step}
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-xs">
-                      Known
-                    </Badge>
-                  )}
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
+      {/* Action buttons */}
+      <div className="px-6 pb-6 pt-2">
+        {!currentStatus ? (
+          <div className="flex gap-3">
+            <Button
+              className="flex-1"
+              onClick={onAddWord}
+              disabled={isActionLoading || isQuotaFull}
+            >
+              {isQuotaFull ? 'Daily limit reached' : 'Add to learn'}
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={onMarkKnown}
+              disabled={isActionLoading}
+            >
+              I know this
+            </Button>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <StatusBadge variant={currentStatus.status} />
+          </div>
+        )}
       </div>
     </div>
   )

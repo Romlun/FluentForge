@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { ProgressBar } from '@/components/ui/progress-bar'
+import { EmptyState } from '@/components/ui/empty-state'
 import { FlashCard } from './FlashCard'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { BookOpen, ChevronLeft, ChevronRight } from 'lucide-react'
 import { addWord, markKnown, getTodayAddedCount, getWordStatuses, getDueWords } from './actions'
 import type { Word } from '@/types'
 
@@ -17,8 +17,22 @@ interface WordStatusMap {
 
 function WordSkeleton() {
   return (
-    <div className="h-96 w-full">
-      <Card className="w-full h-full animate-pulse bg-muted" />
+    <div className="space-y-3">
+      <div className="h-1.5 w-full rounded-full bg-muted animate-pulse" />
+      <div className="rounded-2xl border bg-card p-6 space-y-4 animate-pulse">
+        <div className="h-10 w-48 mx-auto rounded bg-muted" />
+        <div className="h-4 w-32 mx-auto rounded bg-muted" />
+        <div className="h-5 w-20 mx-auto rounded-full bg-muted" />
+        <div className="border-t pt-4 space-y-2">
+          <div className="h-6 w-36 mx-auto rounded bg-muted" />
+          <div className="h-4 w-56 mx-auto rounded bg-muted" />
+          <div className="h-4 w-48 mx-auto rounded bg-muted" />
+        </div>
+        <div className="flex gap-3 pt-2">
+          <div className="h-10 flex-1 rounded-lg bg-muted" />
+          <div className="h-10 flex-1 rounded-lg bg-muted" />
+        </div>
+      </div>
     </div>
   )
 }
@@ -31,7 +45,6 @@ export default function VocabularyPage() {
   const [wordStatuses, setWordStatuses] = useState<WordStatusMap>({})
   const [todayCount, setTodayCount] = useState(0)
   const [dailyLimit, setDailyLimit] = useState(10)
-  const [isFlipped, setIsFlipped] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [dueCount, setDueCount] = useState(0)
 
@@ -79,30 +92,24 @@ export default function VocabularyPage() {
 
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev > 0 ? prev - 1 : words.length - 1))
-    setIsFlipped(false)
   }
 
   const handleNext = () => {
     setCurrentIndex((prev) => (prev < words.length - 1 ? prev + 1 : 0))
-    setIsFlipped(false)
   }
 
   const handleAddWord = async () => {
     if (actionLoading) return
     try {
       setActionLoading(true)
-      const progress = await addWord(currentWord.id)
+      await addWord(currentWord.id)
       setWordStatuses((prev) => ({
         ...prev,
         [currentWord.id]: { status: 'learning', step: 0 },
       }))
       const newCount = todayCount + 1
       setTodayCount(newCount)
-      
-      if (newCount < dailyLimit) {
-        handleNext()
-        setIsFlipped(false)
-      }
+      if (newCount < dailyLimit) handleNext()
     } catch (err) {
       console.error('Failed to add word:', err)
     } finally {
@@ -120,7 +127,6 @@ export default function VocabularyPage() {
         [currentWord.id]: { status: 'known', step: 0 },
       }))
       handleNext()
-      setIsFlipped(false)
     } catch (err) {
       console.error('Failed to mark word as known:', err)
     } finally {
@@ -130,9 +136,15 @@ export default function VocabularyPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen p-4 sm:p-8">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <h1 className="text-3xl font-bold">Vocabulary</h1>
+      <main className="min-h-screen p-4 pb-24 sm:p-8">
+        <div className="max-w-lg mx-auto space-y-5">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-24 rounded bg-muted animate-pulse" />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="h-8 w-32 rounded bg-muted animate-pulse" />
+            <div className="h-4 w-28 rounded bg-muted animate-pulse" />
+          </div>
           <WordSkeleton />
         </div>
       </main>
@@ -141,12 +153,17 @@ export default function VocabularyPage() {
 
   if (error) {
     return (
-      <main className="min-h-screen p-4 sm:p-8">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <h1 className="text-3xl font-bold">Vocabulary</h1>
-          <Card className="p-8 text-center">
-            <p className="text-destructive">{error}</p>
-          </Card>
+      <main className="min-h-screen p-4 pb-24 sm:p-8">
+        <div className="max-w-lg mx-auto space-y-5">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="size-4" />
+            Dashboard
+          </Link>
+          <h1 className="text-2xl font-bold">Vocabulary</h1>
+          <p className="text-destructive text-sm">{error}</p>
         </div>
       </main>
     )
@@ -154,14 +171,21 @@ export default function VocabularyPage() {
 
   if (words.length === 0) {
     return (
-      <main className="min-h-screen p-4 sm:p-8">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <h1 className="text-3xl font-bold">Vocabulary</h1>
-          <Card className="p-12 text-center">
-            <p className="text-lg text-muted-foreground">
-              No words yet — check back soon!
-            </p>
-          </Card>
+      <main className="min-h-screen p-4 pb-24 sm:p-8">
+        <div className="max-w-lg mx-auto space-y-5">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="size-4" />
+            Dashboard
+          </Link>
+          <h1 className="text-2xl font-bold">Vocabulary</h1>
+          <EmptyState
+            icon={<BookOpen className="size-6" />}
+            heading="No words yet"
+            description="The word list is being built — check back soon."
+          />
         </div>
       </main>
     )
@@ -171,32 +195,47 @@ export default function VocabularyPage() {
   const currentStatus = wordStatuses[currentWord?.id]
 
   return (
-    <main className="min-h-screen p-4 sm:p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
-        <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <ChevronLeft className="w-4 h-4" />
+    <main className="min-h-screen p-4 pb-24 sm:p-8">
+      <div className="max-w-lg mx-auto space-y-5">
+        {/* Back link */}
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="size-4" />
           Dashboard
         </Link>
+
+        {/* Header row */}
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-3xl font-bold">Vocabulary</h1>
-          <div className="flex items-center gap-4">
-            {dueCount > 0 && (
-              <Link href="/vocabulary/review">
-                <Button variant="default" size="sm">
-                  Review ({dueCount})
-                </Button>
-              </Link>
-            )}
-            <div className="text-sm text-muted-foreground">
-              {todayCount} / {dailyLimit} new words added today
-            </div>
-          </div>
+          <h1 className="text-2xl font-bold">Vocabulary</h1>
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            {todayCount} / {dailyLimit} words today
+          </span>
         </div>
 
-        <FlashCard 
+        {/* Daily progress bar */}
+        <ProgressBar value={todayCount} max={dailyLimit} />
+
+        {/* Quick-action row */}
+        <div className="flex items-center gap-2">
+          <Link href="/vocabulary/my-words">
+            <Button variant="outline" size="sm">
+              My Words
+            </Button>
+          </Link>
+          {dueCount > 0 && (
+            <Link href="/vocabulary/review">
+              <Button size="sm">
+                Review ({dueCount})
+              </Button>
+            </Link>
+          )}
+        </div>
+
+        {/* Card */}
+        <FlashCard
           word={currentWord}
-          isFlipped={isFlipped}
-          onFlip={setIsFlipped}
           currentStatus={currentStatus}
           onAddWord={handleAddWord}
           onMarkKnown={handleMarkKnown}
@@ -204,29 +243,30 @@ export default function VocabularyPage() {
           isQuotaFull={todayCount >= dailyLimit}
         />
 
+        {/* Pagination */}
         <div className="flex items-center justify-between">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={handlePrev}
-            className="gap-2"
+            className="gap-1.5"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="size-4" />
             Previous
           </Button>
 
-          <p className="text-sm text-muted-foreground font-medium">
-            {currentIndex + 1} / {words.length}
-          </p>
+          <span className="text-sm text-muted-foreground font-medium">
+            {currentIndex + 1} of {words.length}
+          </span>
 
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={handleNext}
-            className="gap-2"
+            className="gap-1.5"
           >
             Next
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="size-4" />
           </Button>
         </div>
       </div>

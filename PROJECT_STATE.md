@@ -21,7 +21,7 @@ _Single source of truth. Read this first every session. Never archive Active Con
 - GitHub (source control) · GitHub Actions (CI)
 - pnpm
 - Anthropic API (server-only, never exposed to client)
-- **Code Agent:** Claude Code, run by the operator directly in their own terminal at the local repo path above. Director does not write or edit application source — read-only verification via Desktop Commander only (see Operator Preferences).
+- **Code Agent:** operator's coding agent of choice (Claude Code, Codex CLI, or otherwise), run by the operator directly in their own terminal at the local repo path above. Director directives are tool-agnostic from 2026-06-16 onward — same standards (CLAUDE.md branch-and-PR workflow, `pnpm build` before push) regardless of which agent implements them. Director does not write or edit application source — read-only verification via Desktop Commander only (see Operator Preferences).
 
 ---
 
@@ -72,7 +72,7 @@ Each card contains: word · image · example sentence in context · American aud
 | Env vars — local      | ✅ .env.local on operator Mac (all 4 vars filled)              |
 | GitHub Actions CI     | ⚠️ Configured but BROKEN — see Active Blocker / Hazards below  |
 | word_list table        | ✅ 2,174 Britlex headwords imported (positions 1–2174)          |
-| words content pipeline | 🔄 933 of 2,174 generated via seed-words Edge Fn; run reports done=true but didn't cover full list — needs investigation |
+| words content pipeline | ⚠️ BLOCKED — invalid ANTHROPIC_API_KEY (401) on seed-words edge function; cron unscheduled. 1,050/5,000 words seeded with real content as of 2026-06-17 audit; 903 stuck at retry cap, awaiting reset once key is fixed. |
 | Domain                | ❌ Not set                                                     |
 
 ---
@@ -97,6 +97,13 @@ _Verified against live Supabase `list_migrations` (2026-06-16) — supersedes th
 | 013 | add_word_category_and_clear_words | 2026-06-13 | Added words.category / word_list.category; cleared prior words rows for re-seed |
 | 014 | create_word_list_table | 2026-06-13 | word_list (position, word, source, category) — Britlex 2,174-entry import target |
 | 015 | drop_word_list_word_unique | 2026-06-13 | Dropped UNIQUE on word_list.word — Britlex has legitimate duplicate headwords at different positions/senses |
+| 016 | add_word_list_seed_attempts | 2026-06-16 | word_list.seed_attempts (default 0) — caps retries on permanently-failing words at 3 |
+| 017 | add_seed_progress_remaining | 2026-06-16 | seed_progress.remaining — authoritative missing-word count, computed in SQL not trusted from the edge function |
+| 018 | seed_words_tick_self_healing_rewrite + fix_seed_words_tick_http_timeout | 2026-06-16 | Rewrote orchestrator: queries actual missing words instead of walking a fixed offset; properly accumulates total_failed (previously dead); bumped net.http_post timeout_milliseconds from the 5000ms default to 60000ms — this was the actual root cause of the stall, not an edge function timeout as first suspected (see Session Notes) |
+| 019 | add_random_distractor_translations_rpc + widen_distractor_translations_rpc_candidate_pool | 2026-06-17 | get_random_distractor_translations() — replaces the invalid order(random()) in getReviewOptions (patch 5 fixup). Returns 10 candidates so the app can dedupe client-side, not just 3. |
+| 020 | add_get_missing_words_batch_rpc | 2026-06-17 | get_missing_words_batch() — moves the seed-words missing-word lookup into SQL. Direct REST .select().limit() on word_list/words silently caps at 1000 rows regardless of the limit requested (confirmed empirically) — see Hazards. The RPC has no such cap since it's not a REST table select. |
+| 021 | add_temp_bulk_insert_word_list_rpc (created + dropped same session) | 2026-06-17 | One-off RPC used to bulk-load the 2826 new word_list rows (positions 2175-5000) directly from a local script's memory, avoiding piping that much data through Director's own context twice. Granted EXECUTE to anon temporarily, used once, then function dropped (grant revoked automatically with it). Net effect: no permanent schema change, just a faster one-time load mechanism — recorded here as a precedent for future bulk loads, see Operator Preferences. |
+| 022 | enable_rls_word_list_and_seed_progress | 2026-06-17 | Enabled RLS on word_list and seed_progress, no policies — both are internal pipeline-only tables with no legitimate anon/authenticated access pattern. Fixed two ERROR-level Supabase advisor findings (RLS disabled in public) surfaced during a routine session-start audit. service_role + SECURITY DEFINER cron functions unaffected. |
 
 **Untracked schema drift:** `words.translation` and `user_word_progress.step` / `next_review_at` exist live but match no migration above — applied via raw `execute_sql` DDL outside migration tracking at some point on 2026-06-13. Schema can't currently be fully rebuilt from this ledger alone. Low-urgency fix: a no-op `ADD COLUMN IF NOT EXISTS` migration to bring tracking back in sync.
 
@@ -104,7 +111,7 @@ _Verified against live Supabase `list_migrations` (2026-06-16) — supersedes th
 
 ## Phase Plan
 - ✅ **Phase 1 — Vocabulary MVP:** SRS review session, word selection (add/known) with daily quota, flashcard UI, Russian translations, forgot password flow
-- 🔄 **Phase 2 — Content pipeline & TTS:** word_list import done (2,174 Britlex headwords). Content generation at 933/2,174 — seed run completed (done=true) without covering the full list; needs investigation + re-trigger. TTS audio + images: not started. List expansion to ~5000 (positions 2175+): not started, low priority.
+- 🔄 **Phase 2 — Content pipeline & TTS:** word_list import DONE — full 5000 (Britlex headwords, positions 1-5000) as of 2026-06-17. Content generation BLOCKED — see Hazards (invalid ANTHROPIC_API_KEY on the seed-words edge function). 1,050/5,000 words have real content (verified by live count 2026-06-17); 3,950 still missing once the key's fixed (903 of those stuck at the 3-attempt retry cap — see Hazards). TTS audio + images: not started.
 - ⚪ **Phase 3 — Game layer:** XP, streaks, levels, badges
 - ⚪ **Phase 4 — Grammar + Listening:** Grammar rules + exercises, audio comprehension exercises
 
@@ -115,11 +122,27 @@ _Verified against live Supabase `list_migrations` (2026-06-16) — supersedes th
 - [x] SRS review session
 - [x] Forgot password flow
 - [x] Britlex word_list import (2,174 headwords)
-- [ ] Investigate why seed-words run stopped at 933/2,174 despite done=true, then re-trigger to finish the list
-- [ ] /api/next-due-word empty-state fix (return nextDueAt when no cards due) — dispatched twice via relay (d45d42f0, 36be27c3), never built — see Active Blocker
-- [ ] UI redesign — sign-in/signup, dashboard, vocabulary card, review screen, global nav — full spec exists, nothing implemented; recommend splitting into 5 smaller patches once a build path exists
-- [ ] TTS American audio + images per word
-- [ ] List expansion to ~5000 words (positions 2175+) — low priority
+- [x] Diagnose + fix the seed-words stall — root cause was net.http_post's 5000ms default timeout, far too short for an Opus 4.8 call; fixed (60000ms) + rewrote orchestrator/edge fn to be self-healing instead of offset-based; running unattended again
+- [x] /api/next-due-word empty-state fix — PR #12 merged to main 2026-06-16. Also fixed the tsconfig scripts/+supabase/ exclude bug (see Hazards), unblocking every deploy since PR #9.
+- [x] UI redesign, against the GPT mockup (uploaded 2026-06-16, FluentForge branding per Precedents) — all 5 patches merged and live in production 2026-06-17:
+  1. [x] Design system / shared primitives — PR #13 merged 2026-06-16
+  2. [x] Sign-in / signup screens — PR #14 merged 2026-06-16. SSO buttons present but disabled (no OAuth configured); new PasswordInput component (show/hide toggle).
+  3. [x] Dashboard — PR #15 merged 2026-06-16. Real data (profile, today's count, due count, recent words), 3-tab bottom nav (Home/Vocabulary/Review — Profile/My Words deferred, no routes yet). FLAGGED: profiles.streak_count exists but nothing increments it — card shows real zero, not faked; needs increment logic, likely Phase 3.
+  4. [x] Vocabulary card (browse/add) + My Words + word detail screen — PR #16 merged 2026-06-16, built via Codex CLI (first non-Claude-Code patch — see Operator Preferences). Real audio button (plays words.audio_url when present, honestly disabled otherwise — TTS not built yet). "Difficult" = lapses >= 2 (DIFFICULT_LAPSE_THRESHOLD in actions.ts, adjustable). Bookmark icon visual-only, no bookmark concept exists. Word detail adds an unrequested-but-real SRS stats card (reviews/lapses/step) — good addition, no fabricated data.
+  5. [x] Review screen — multiple-choice quiz interaction — PR #18 merged 2026-06-17, completing the full UI redesign. Built via Codex (interaction logic, progress tracking) with a real bug found and fixed before merge: getReviewOptions used the same order(random()) PostgREST mistake as the seed-words incident — see the recurring-gotcha Precedent. Fixed via new RPC (get_random_distractor_translations) + a one-line code swap, the latter applied directly by the Director at the operator's explicit one-off request (standing rule is otherwise unchanged — Director doesn't write app code). NOTE: the production deploy for this merge had an unexplained ~3min delay (GitHub showed zero status checks registered for the commit; no active Vercel incident on Build/Deploy/Git Integrations at the time) — resolved by the operator manually clicking Redeploy from the Vercel dashboard. Isolated incident, not investigated further.
+- [x] Daily quota timezone fix + soft-cap (not hard-block) — PR #19 merged 2026-06-17. Local `pnpm build` passed. Fixes two bugs: getTodayAddedCount/dashboard both used UTC midnight instead of Pacific midnight (operator's real reset time); FlashCard.tsx hard-disabled "Add to learn" once daily_new_limit was hit instead of treating it as a goal.
+- [x] Auth error logging — PR #17 merged 2026-06-17. Triggered by a real production incident: a person the operator shared the link with couldn't sign in ("information is wrong"). Investigation confirmed only the operator's own account exists in auth.users; signUp/redirect-URL mechanics were directly verified working via a manual test call. Root cause of THAT specific incident (their exact email) was never pinned down — yesterday's logs had already rotated out by the time of investigation. login/signup now log email + structured error (message/status/code) server-side, so next time this is debuggable from Vercel runtime logs instead of guesswork.
+- [x] List expansion to ~5000 words (positions 2175-5000) — DONE 2026-06-17. Extracted directly
+  from the real Britlex PDF (https://britlex.ru/5000_7000_English_words.pdf), not just the
+  original 2174 the import script had gotten before. Needed a more robust extraction than the
+  original script's line-anchored regex: flatten all whitespace first (pdf-parse's line-breaking
+  for this doc is inconsistent between runs), allow `:`/`.` in the word match (plural notes like
+  "leaf (pl: leaves)" otherwise break it), and reject any match whose position isn't strictly
+  greater than the last accepted one (filters false positives from numbers embedded in the
+  Russian glosses, e.g. "13-19" in an age range). Verified all 5000 positions present, zero gaps,
+  before loading. word_list now has exactly 5000 rows. scripts/import-word-list.ts itself was
+  NOT updated with this more robust logic — it still has the original fragile regex if anyone
+  re-runs it from scratch.
 
 ## Parked / Paused
 - **Headroom token compression** (https://github.com/chopratejas/headroom) — compress
@@ -133,7 +156,24 @@ _Verified against live Supabase `list_migrations` (2026-06-16) — supersedes th
 ## Active Constraints
 
 ### Precedents
-_None banked yet._
+- **2026-06-16 — App branding stays FluentForge.** Operator commissioned a GPT-generated UI
+  mockup that's branded "LexiLearn" throughout. Confirmed: that's placeholder naming from the
+  design tool, not a rename signal. Treat the mockup as a visual/component reference only —
+  ignore its app name, copy, and any other product-naming choices unless explicitly told otherwise.
+- **RECURRING GOTCHA — never use `.order('random()')` on the Supabase JS query builder.**
+  This has broken two separate features now: the original seed-words content pipeline stall,
+  and patch 5 of the UI redesign (review quiz distractors). PostgREST's `order` parameter only
+  accepts column names, not SQL expressions — `.order('random()')` throws a parse error on
+  every call at runtime, and `pnpm build`'s typecheck has no way to catch it. For any "random
+  row(s)" need: write a Postgres function (`ORDER BY random() LIMIT n` works fine in real SQL)
+  and call it via `supabase.rpc(...)` instead. See `get_random_distractor_translations` (added
+  2026-06-16) for the pattern.
+- **2026-06-16 — Review session uses active-recall multiple-choice, not flip-card.** The
+  GPT mockup showed a multiple-choice translation quiz (4 options, 3-way outcome: I forgot /
+  Need practice / I remember) instead of the originally-shipped flip-card + binary Again/Got it.
+  Operator chose to adopt the new interaction. This is a real behavior change, not just a
+  restyle — needs distractor generation for wrong answers and a 3-way-outcome mapping onto the
+  SD-005 step ladder. See In-Flight Work for the build plan.
 
 ### Standing Decisions
 - **SD-001:** UI language is English-only. i18n deferred until core is solid.
@@ -171,12 +211,17 @@ ALWAYS exclude from auto-merge: migrations, RLS policies, auth config, billing,
 customer-facing UI, agent-relay code, env var changes.
 
 ### Hazards
+- **NEW — stale AGENTS.md conflicts with current PR workflow:** Codex CLI generated `/AGENTS.md` (untracked, not committed) on 2026-06-16 — but its content is just the old relay-era CLAUDE.md verbatim: it instructs the agent to run `gh pr create` itself and include a `relay-directive: <uuid>` line. That's wrong now — Director opens and merges every PR (Operator Preferences). Codex correctly ignored it and stopped after pushing this time, but the file is sitting there and could mislead a future agent (Codex or Claude Code) into trying to open its own PR. Needs fixing or deleting — not done yet, flagged for next session/patch.
 - ~~gh_dispatch_token lacks pull_requests scope~~ — SUPERSEDED. PRs #9, #10, #11 merged successfully via relay_auto_merge_via_graphql (migration 010); scope is evidently fine now. Struck through rather than deleted in case it recurs.
 - Supabase Site URL was localhost:3000, fixed to production URL in dashboard. Redirect URLs include both prod and localhost.
-- **ACTIVE — cody-build workflow broken:** `claude-code-base-action@beta` fails ~10-20s into every run, exit 1, before any code is written. Root cause: the workflow's `claude_env` block sets `ANTHROPIC_MODEL`, but it arrives EMPTY in the actual run environment (confirmed in job logs) — suspected parsing bug in the action, possibly tied to the `claude_env` YAML block or the `@beta` version pin. NOT YET FIXED — `.github/workflows/cody-build.yml` itself has never actually been read; that's the concrete next step whenever this path is revived. Four relays stuck in `dispatched` with no PR: 3c70ad08, 50469ace (2026-06-13), d45d42f0, 36be27c3 (2026-06-14).
-- **Auto-merge governance gap:** relay_merge_when_ready() (SD-003) auto-merges customer-facing PRs with no per-PR human gate, contradicting the stated Auto-Merge Scope. Unresolved — operator hasn't ruled on whether to tighten the function or revise the policy.
+- **ACTIVE — cody-build workflow broken:** `claude-code-base-action@beta` fails ~10-20s into every run, exit 1, before any code is written. Root cause: the workflow's `claude_env` block sets `ANTHROPIC_MODEL`, but it arrives EMPTY in the actual run environment (confirmed in job logs) — suspected parsing bug in the action, possibly tied to the `claude_env` YAML block or the `@beta` version pin. NOT YET FIXED — `.github/workflows/cody-build.yml` itself has never actually been read; that's the concrete next step whenever this path is revived. **Manually disabled by operator 2026-06-16** (verified via GitHub API: `state: disabled_manually`) — re-enable from the Actions tab once the bug is fixed and the relay path is wanted again.
+- **CLOSED 2026-06-16 — old relay dispatches:** the four orphaned relays (3c70ad08, 50469ace, d45d42f0, 36be27c3) updated to `status='rejected'` — none ever produced a PR. All four `auto-merge-<id>` cron jobs unscheduled, and the master `relay-autowire-tick` orchestrator (every-minute poll) unscheduled too, since the whole relay system is dormant with the workflow disabled. To revive later: re-enable the workflow, re-schedule `relay-autowire-tick` (`SELECT cron.schedule('relay-autowire-tick', '* * * * *', $$SELECT relay_autowire_tick()$$)`), and insert fresh relay rows for any new dispatch.
+- **Auto-merge governance gap:** relay_merge_when_ready() (SD-003) auto-merges customer-facing PRs with no per-PR human gate, contradicting the stated Auto-Merge Scope. Unresolved — operator hasn't ruled on whether to tighten the function or revise the policy. (Moot while the relay system is dormant; revisit if/when revived.)
 - **Untracked schema drift:** see Migration Ledger note — words.translation and user_word_progress.step/next_review_at exist live with no corresponding migration.
-- Two dangling auto-merge cron jobs (auto-merge-d45d42f0, auto-merge-36be27c3) are harmless no-ops polling for PRs that won't appear until the workflow is fixed. Leave as-is or unschedule — operator's call, not urgent.
+- **ACTIVE — seed-words edge function ANTHROPIC_API_KEY is invalid.** Confirmed via direct error capture: `401 invalid x-api-key`. Blocks ALL content generation. Fix via the dashboard (no MCP tool exists for managing edge function secrets): https://supabase.com/dashboard/project/qbmwruehpcwebtawgejt/settings/functions — update the key, then resume: reset seed_progress (done=false, pending_request_id=null) and re-schedule `seed-words-orchestrator` (`SELECT cron.schedule('seed-words-orchestrator', '*/3 * * * *', $$SELECT seed_words_tick()$$)`). Cron is currently unscheduled on purpose — leaving it running with a broken key would keep incrementing seed_attempts on words that have nothing wrong with them.
+- **903 word_list rows stuck at seed_attempts >= 3** (permanently excluded from retry under current logic), accumulated partly before this session's RPC fix existed. Once the API key is fixed, reset these (`UPDATE word_list SET seed_attempts = 0 WHERE seed_attempts >= 3`) to give them a fair shot now that the real underlying bug (see migration 020) is gone.
+- **RECURRING GOTCHA — direct REST `.select().limit(N)` on word_list/words silently caps at 1000 rows**, regardless of how large N is, confirmed empirically (requested 6000, got exactly 1000). This is a Supabase/PostgREST behavior, not anything in this project's code — `current_setting('pgrst.db_max_rows', true)` reports null (no override configured), yet the cap applies anyway. This broke the seed-words missing-word lookup once the table grew past 1000 rows (it would silently see only the first 1000 positions and think nothing was missing). Fixed by moving that lookup into a SQL function (migration 020) instead of a REST table select — RPC results aren't subject to this cap. If any future code does a direct `.select()` expecting more than ~1000 rows back, assume it'll silently truncate; use an RPC instead.
+- ~~Production build broken since PR #9~~ — RESOLVED 2026-06-16 via PR #12. tsconfig's broad `**/*.ts` include was pulling scripts/ (pdf-parse, no types) and supabase/ (Deno esm.sh imports tsc can't resolve) into the app's strict typecheck. Excluded both. Production confirmed READY on commit 750c11f. Three days of silent failures — PRs #9, #10, #11, and a docs-only commit all failed to deploy with nothing alerting on it; Vercel just kept serving stale Phase-1 code. Worth actively checking deploy state after merges rather than assuming a merge shipped.
 
 ---
 
@@ -188,7 +233,15 @@ Supabase Auth, single role (no admin/staff tier yet). Signup, login, email confi
 ## Operator Preferences
 - Often on phone — keep all directives atomic, one item per copyable block
 - **As of 2026-06-16:** operator writes application code directly, in their own terminal, via Claude Code, against the local clone at the path above. Director's role narrowed to read-only verification via Desktop Commander — no write_file/edit_block on application source. Director may still update PROJECT_STATE.md directly when explicitly authorized (as in this update).
-- Git operations (commit/push/merge): operator's local terminal now; historically Safari on mobile for PR merges. SSH auth (not HTTPS PAT — had scope issues).
+- Git operations (commit/push): operator's local terminal. **PR open/merge (as of 2026-06-16): operator does not want to interact with GitHub.com at all** — Director handles all PR creation and merging via the GitHub API (same gh_dispatch_token/GraphQL mechanism proven on PRs #9-12), verifying build status (Vercel) and reviewing the diff before each merge. Operator's only loop now: paste Director's directive into local Claude Code, run it, report back. No more compare links or manual merge clicks for the operator.
+- **As of 2026-06-17: minimize Director token usage on bulk/data work.** Director's role is SQL
+  migrations/RPC functions, edge function deployment, PR review/merge, build verification, and
+  diagnosis — things that genuinely need Supabase/GitHub MCP access. Anything involving parsing,
+  scripting, bulk data transformation, or moving large amounts of text/data should go to the
+  operator's coding agent running a local script, NOT Director typing it through chat. Triggered
+  by the word_list 5000-expansion task, where Director manually transcribed ~2800 SQL rows through
+  its own context (twice — once reading, once writing) before realizing a one-off RPC + a local
+  script calling it directly was far cheaper. Default to that pattern for any future bulk load.
 
 ---
 
@@ -208,4 +261,7 @@ Next: Supabase client setup, GitHub Actions CI, data model + first migration.
 Phase 1 shipped. Diagnosed relay never created PRs (Cody committed to main; workflow lacked branch+PR enforcement and prompt field mismatch). Fixed workflow via direct Contents API write + corrected task field. Shipped: Russian translations (SD-004), forgot password, word selection with daily quota, full SRS review session (SD-005), mobile layout fix, navigation. Migrations 009 (translation) + 010 (SRS redesign) applied directly via MCP. 10 seed words live with Russian. Britlex confirmed as word-list reference only — content generated by us (SD-006). Phase 1 complete. Next: PAT scope fix, then Phase 2 content pipeline (~5000 words).
 
 **Session 3 — 2026-06-16:**
-Imported Britlex word_list (2,174 headwords, migration 014; dropped over-constraining UNIQUE in 015 — legitimate duplicate headwords at different positions/senses). Stood up seed-words Edge Function + seed-words-orchestrator cron (migration 012) to generate translation/definition/phonetics/example per word via Anthropic API; run completed (done=true) but only reached 933/2,174 words — needs investigation. Attempted two Cody dispatches via relay (next-due-word empty-state fix, full UI redesign) — both failed: cody-build workflow dies in ~10-20s because ANTHROPIC_MODEL arrives empty in the run environment despite being set in claude_env (suspected claude-code-base-action@beta parsing bug). Root cause identified, not yet fixed — workflow file itself never read. Operator decided to bypass the relay entirely for now: cloned repo to laptop (~/FluentForge), fixed a stale Claude Code login (401 → /login), and will write code directly via local terminal. Director's role narrowed to read-only file verification via Desktop Commander. Read live PROJECT_STATE.md from the repo and found it stale (last updated end of Session 2): migration ledger didn't match live Supabase history at all, SD-006 mischaracterized the word list as non-Britlex corpus data, local path was wrong, Role/Auth Model was still TBD despite auth being shipped, and a real governance gap surfaced — relay_auto_merge_via_graphql auto-merges customer-facing PRs (#9-11) with no per-PR gate, contradicting the documented Auto-Merge Scope. Corrected all of the above; governance gap and cody-build fix both flagged as unresolved, deferred until relay work resumes. Next: operator works locally; Director verifies on request.
+Imported Britlex word_list (2,174 headwords, migration 014; dropped over-constraining UNIQUE in 015 — legitimate duplicate headwords at different positions/senses). Stood up seed-words Edge Function + seed-words-orchestrator cron (migration 012) to generate translation/definition/phonetics/example per word via Anthropic API; run completed (done=true) but only reached 933/2,174 words — needs investigation. Attempted two Cody dispatches via relay (next-due-word empty-state fix, full UI redesign) — both failed: cody-build workflow dies in ~10-20s because ANTHROPIC_MODEL arrives empty in the run environment despite being set in claude_env (suspected claude-code-base-action@beta parsing bug). Root cause identified, not yet fixed — workflow file itself never read. Operator decided to bypass the relay entirely for now: cloned repo to laptop (~/FluentForge), fixed a stale Claude Code login (401 → /login), and will write code directly via local terminal. Director's role narrowed to read-only file verification via Desktop Commander. Read live PROJECT_STATE.md from the repo and found it stale (last updated end of Session 2): migration ledger didn't match live Supabase history at all, SD-006 mischaracterized the word list as non-Britlex corpus data, local path was wrong, Role/Auth Model was still TBD despite auth being shipped, and a real governance gap surfaced — relay_auto_merge_via_graphql auto-merges customer-facing PRs (#9-11) with no per-PR gate, contradicting the documented Auto-Merge Scope. Corrected all of the above; governance gap and cody-build fix both flagged as unresolved, deferred until relay work resumes. Closed out the old relay system entirely: 4 orphaned relay rows → `rejected`, all 4 auto-merge cron jobs + the master `relay-autowire-tick` orchestrator unscheduled (`cron.job` now empty). Then diagnosed and fixed the seed-words stall (migrations 016-018): true root cause was `net.http_post`'s 5000ms default timeout — far shorter than an Opus 4.8 generation call — silently dropping every chunk while the edge function kept completing in the background and persisting whatever it finished before the caller gave up (explains the 933 real rows despite zero recorded successes). First attempted fix (rewriting to a self-healing "missing words" query) had its own bug — an overfetch-by-position window that happened to land entirely on already-seeded rows; fixed by fetching the full small candidate set instead of windowing. Bumped the http timeout to 60000ms, redeployed edge function v4, smoke-tested manually (confirmed 200/processed:20), reset and restarted the cron pipeline — running unattended again, 973/2,174 at restart, ~1,082 remaining. Next: operator continues building features locally; Director verifies on request and monitors the pipeline.
+
+**Session 4 — 2026-06-17:**
+Routine session-start audit by a fresh Director instance. Verified migration ledger against live Supabase — exact match, no drift. Opened and merged PR #19 (daily-quota Pacific-midnight fix + soft cap) after reviewing the diff and confirming green Vercel build. Found and fixed two ERROR-level RLS gaps (word_list, seed_progress) via migration 022. Corrected stale content-pipeline numbers in Phase Plan/Infra State — file claimed ~2,050 words seeded, live count is 1,050/5,000.

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Bell, BookOpen, Menu, RotateCcw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { startOfTodayInTimeZone } from '@/lib/date'
 import { logout } from '@/app/(auth)/actions'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -68,8 +69,7 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const today = new Date()
-  today.setUTCHours(0, 0, 0, 0)
+  const today = startOfTodayInTimeZone()
 
   const [profileRes, todayCountRes, dueCountRes, recentWordsRes] = await Promise.all([
     supabase

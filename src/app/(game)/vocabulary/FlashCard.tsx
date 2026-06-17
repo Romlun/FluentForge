@@ -13,6 +13,7 @@ interface FlashCardProps {
   onMarkKnown?: () => Promise<void>
   isActionLoading?: boolean
   isQuotaFull?: boolean
+  dailyGoal?: number
 }
 
 export function FlashCard({
@@ -22,6 +23,7 @@ export function FlashCard({
   onMarkKnown,
   isActionLoading = false,
   isQuotaFull = false,
+  dailyGoal,
 }: FlashCardProps) {
   const handlePlay = () => {
     if (word.audio_url) {
@@ -90,11 +92,19 @@ export function FlashCard({
         {!currentStatus ? (
           <div className="flex gap-3">
             <Button
-              className="flex-1"
+              variant={isQuotaFull ? 'secondary' : 'default'}
+              className="flex-1 h-auto min-h-8 whitespace-normal py-2"
               onClick={onAddWord}
-              disabled={isActionLoading || isQuotaFull}
+              disabled={isActionLoading}
             >
-              {isQuotaFull ? 'Daily limit reached' : 'Add to learn'}
+              <span className="flex flex-col leading-tight">
+                <span>{isQuotaFull ? 'Add anyway' : 'Add to learn'}</span>
+                {isQuotaFull && dailyGoal !== undefined && (
+                  <span className="text-[10px] font-normal opacity-80">
+                    Today&apos;s goal: {dailyGoal}
+                  </span>
+                )}
+              </span>
             </Button>
             <Button
               variant="outline"

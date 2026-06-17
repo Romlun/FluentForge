@@ -109,7 +109,7 @@ export default function VocabularyPage() {
       }))
       const newCount = todayCount + 1
       setTodayCount(newCount)
-      if (newCount < dailyLimit) handleNext()
+      handleNext()
     } catch (err) {
       console.error('Failed to add word:', err)
     } finally {
@@ -241,6 +241,7 @@ export default function VocabularyPage() {
           onMarkKnown={handleMarkKnown}
           isActionLoading={actionLoading}
           isQuotaFull={todayCount >= dailyLimit}
+          dailyGoal={dailyLimit}
         />
 
         {/* Pagination */}

@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { startOfTodayInTimeZone } from '@/lib/date'
 
 const SRS_LADDER: Record<number, number> = {
   0: 0,
@@ -272,8 +273,7 @@ export async function getTodayAddedCount(): Promise<number> {
   
   if (!user) throw new Error('Not authenticated')
 
-  const today = new Date()
-  today.setUTCHours(0, 0, 0, 0)
+  const today = startOfTodayInTimeZone()
 
   const { count, error } = await supabase
     .from('user_word_progress')

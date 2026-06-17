@@ -35,8 +35,13 @@ export interface WordWithProgress {
     word: string
     translation: string | null
     definition: string
+    part_of_speech: string | null
+    phonetic: string | null
+    audio_url: string | null
   }
 }
+
+export type ReviewOutcome = 'remember' | 'need_practice' | 'forgot'
 
 export async function addWord(wordId: number): Promise<UserWordProgress> {
   const supabase = await createClient()
@@ -98,7 +103,7 @@ export async function markKnown(wordId: number): Promise<UserWordProgress> {
 
 export async function rateWord(
   wordId: number,
-  outcome: 'got_it' | 'again'
+  outcome: ReviewOutcome
 ): Promise<UserWordProgress> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -119,13 +124,17 @@ export async function rateWord(
   let newReps = progress.reps
   let newLapses = progress.lapses
 
-  if (outcome === 'got_it') {
+  // Review outcome to SRS_LADDER step mapping. Adjust here when tuning the ladder.
+  if (outcome === 'remember') {
     newStep = Math.min(10, progress.step + 1)
-    newReps += 1
+  } else if (outcome === 'need_practice') {
+    // Reinforcement, not a lapse.
+    newStep = Math.max(0, progress.step - 1)
   } else {
-    newStep = Math.max(1, progress.step - 1)
+    newStep = Math.max(0, progress.step - 3)
     newLapses += 1
   }
+  newReps += 1
 
   const minutesUntilNextReview = SRS_LADDER[newStep]
   const nextReviewAt = new Date(Date.now() + minutesUntilNextReview * 60 * 1000)
@@ -147,6 +156,53 @@ export async function rateWord(
   return data as UserWordProgress
 }
 
+function shuffleOptions(options: string[]) {
+  const shuffled = [...options]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
+export async function getReviewOptions(
+  wordId: number,
+  correctTranslation: string
+): Promise<string[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('Not authenticated')
+
+  const normalizedCorrect = correctTranslation.trim()
+
+  // One random query is enough at this table size; overfetch guards against duplicate translations.
+  const { data, error } = await supabase
+    .from('words')
+    .select('translation')
+    .neq('id', wordId)
+    .not('translation', 'is', null)
+    .neq('translation', '')
+    .neq('translation', normalizedCorrect)
+    .order('random()')
+    .limit(12)
+
+  if (error) throw error
+
+  const distractors: string[] = []
+  const seen = new Set([normalizedCorrect])
+
+  for (const row of data || []) {
+    const translation = row.translation?.trim()
+    if (!translation || seen.has(translation)) continue
+    seen.add(translation)
+    distractors.push(translation)
+    if (distractors.length === 3) break
+  }
+
+  return shuffleOptions([normalizedCorrect, ...distractors])
+}
+
 export async function getDueWords(): Promise<WordWithProgress[]> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -165,7 +221,7 @@ export async function getDueWords(): Promise<WordWithProgress[]> {
       reps,
       lapses,
       created_at,
-      word:words(id, word, translation, definition)
+      word:words(id, word, translation, definition, part_of_speech, phonetic, audio_url)
     `)
     .eq('user_id', user.id)
     .eq('status', 'learning')

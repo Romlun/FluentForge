@@ -233,3 +233,136 @@ export async function getTodayAddedCount(): Promise<number> {
   if (error) throw error
   return count || 0
 }
+
+export interface UserWordWithWord {
+  progress: UserWordProgress
+  word: {
+    id: number
+    word: string
+    translation: string | null
+    definition: string
+    part_of_speech: string | null
+    phonetic: string | null
+    example_sentence: string | null
+    audio_url: string | null
+    frequency_rank: number | null
+    tags: string[]
+    created_at: string
+  }
+}
+
+export type WordFilter = 'all' | 'learning' | 'known' | 'difficult' | 'due_today'
+
+// "Difficult" = lapses >= 2. Adjust threshold here if needed.
+const DIFFICULT_LAPSE_THRESHOLD = 2
+
+export async function getUserWords(
+  filter: WordFilter = 'all',
+  search = ''
+): Promise<UserWordWithWord[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('Not authenticated')
+
+  let query = supabase
+    .from('user_word_progress')
+    .select(`
+      id,
+      user_id,
+      word_id,
+      status,
+      step,
+      next_review_at,
+      reps,
+      lapses,
+      created_at,
+      word:words(
+        id, word, translation, definition,
+        part_of_speech, phonetic, example_sentence,
+        audio_url, frequency_rank, tags, created_at
+      )
+    `)
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  if (filter === 'learning') query = query.eq('status', 'learning')
+  else if (filter === 'known') query = query.eq('status', 'known')
+  else if (filter === 'difficult') query = query.gte('lapses', DIFFICULT_LAPSE_THRESHOLD)
+  else if (filter === 'due_today') query = query.lte('next_review_at', new Date().toISOString())
+
+  const { data, error } = await query
+
+  if (error) throw error
+
+  let rows = (data || []).map((row) => ({
+    progress: {
+      id: row.id,
+      user_id: row.user_id,
+      word_id: row.word_id,
+      status: row.status as 'learning' | 'known',
+      step: row.step,
+      next_review_at: row.next_review_at,
+      reps: row.reps,
+      lapses: row.lapses,
+      created_at: row.created_at,
+    },
+    word: (Array.isArray(row.word) ? row.word[0] : row.word) as UserWordWithWord['word'],
+  }))
+
+  if (search.trim()) {
+    const q = search.toLowerCase()
+    rows = rows.filter(
+      (r) =>
+        r.word.word.toLowerCase().includes(q) ||
+        (r.word.translation ?? '').toLowerCase().includes(q)
+    )
+  }
+
+  return rows
+}
+
+export async function getWordById(wordId: number): Promise<UserWordWithWord['word'] | null> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('words')
+    .select('id, word, translation, definition, part_of_speech, phonetic, example_sentence, audio_url, frequency_rank, tags, created_at')
+    .eq('id', wordId)
+    .single()
+
+  if (error) return null
+  return data as UserWordWithWord['word']
+}
+
+export async function getUserWordProgress(wordId: number): Promise<UserWordProgress | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return null
+
+  const { data, error } = await supabase
+    .from('user_word_progress')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('word_id', wordId)
+    .single()
+
+  if (error) return null
+  return data as UserWordProgress
+}
+
+export async function removeFromMyWords(wordId: number): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('Not authenticated')
+
+  const { error } = await supabase
+    .from('user_word_progress')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('word_id', wordId)
+
+  if (error) throw error
+}

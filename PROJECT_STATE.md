@@ -72,7 +72,8 @@ Each card contains: word · image · example sentence in context · American aud
 | Env vars — local      | ✅ .env.local on operator Mac (all 4 vars filled)              |
 | GitHub Actions CI     | ⚠️ Configured but BROKEN — see Active Blocker / Hazards below  |
 | word_list table        | ✅ 4,663 Britlex headwords after operator-file dedupe (migration 029) |
-| words content pipeline | ✅ COMPLETE — words fully populated: 4,663 rows, all six content fields (word, part_of_speech, translation, phonetic, definition, example_sentence), all operator-authored (original work, American English), zero Opus/API involvement. word_list and words both 4,663, fully aligned, every row has frequency_rank. audio_url still null everywhere (browser-TTS fallback live; Stage 2 real audio pending). |
+| words content pipeline | ✅ COMPLETE — words fully populated: 4,663 rows, all six content fields (word, part_of_speech, translation, phonetic, definition, example_sentence), all operator-authored (original work, American English), zero Opus/API involvement. word_list and words both 4,663, fully aligned, every row has frequency_rank. |
+| audio_url | ✅ COMPLETE — all 4,663 words have Google TTS Neural2-F MP3s in Supabase Storage (bucket: word-audio). Generated 2026-06-18 via scripts/generate-tts-audio.ts. |
 | Domain                | ❌ Not set                                                     |
 
 ---
@@ -115,7 +116,7 @@ _Verified against live Supabase `list_migrations` (2026-06-16) — supersedes th
 
 ## Phase Plan
 - ✅ **Phase 1 — Vocabulary MVP:** SRS review session, word selection (add/known) with daily quota, flashcard UI, Russian translations, forgot password flow
-- 🔄 **Phase 2 — Content pipeline & TTS:** word_list import DONE — 4,663 Britlex headwords after operator-file dedupe (migration 029). Content COMPLETE 2026-06-18 — operator authored a full 4,663-word CSV (translation, American phonetic, definition, part of speech, example) loaded straight into `words`, overwriting the earlier 1,050 Opus-seeded rows for one consistent source. ANTHROPIC_API_KEY is no longer on the critical path for content. Remaining Phase 2: TTS audio (Stage 1 browser TTS shipped PR #22; Stage 2 pre-generated audio files into Storage/audio_url still pending) + images (not started).
+- 🔄 **Phase 2 — Content pipeline & TTS:** word_list import DONE — 4,663 Britlex headwords after operator-file dedupe (migration 029). Content COMPLETE 2026-06-18 — operator authored a full 4,663-word CSV (translation, American phonetic, definition, part of speech, example) loaded straight into `words`, overwriting the earlier 1,050 Opus-seeded rows for one consistent source. ANTHROPIC_API_KEY is no longer on the critical path for content. ✅ Stage 2 pre-generated audio — COMPLETE 2026-06-18. All 4,663 words generated via Google Cloud TTS Neural2-F, stored in Supabase Storage bucket `word-audio`, audio_url populated on every words row. Browser TTS remains as fallback only. Remaining Phase 2: images (not started).
 - ⚪ **Phase 3 — Game layer:** XP, streaks, levels, badges
 - ⚪ **Phase 4 — Grammar + Listening:** Grammar rules + exercises, audio comprehension exercises
 
@@ -263,6 +264,7 @@ Supabase Auth, single role (no admin/staff tier yet). Signup, login, email confi
   of re-fetching the diff via GitHub API for routine cases. PR creation/merge remain with Director
   via the GitHub API for now — gh CLI isn't installed locally; full delegation to the Code Agent is
   deferred pending a deliberate decision on the one-time github.com auth setup that would require.
+- GOOGLE_TTS_API_KEY is in .env.local (not committed). Script: scripts/generate-tts-audio.ts, run via `pnpm generate-tts`. Resumable — skips words where audio_url is already set.
 
 ---
 

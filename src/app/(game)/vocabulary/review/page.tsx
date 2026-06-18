@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ProgressBar } from '@/components/ui/progress-bar'
+import { isBrowserTtsAvailable, speakAmerican } from '@/lib/tts'
 import { cn } from '@/lib/utils'
 import { BookOpen, ChevronLeft, Volume2 } from 'lucide-react'
 import { getDueWords, getReviewOptions, rateWord } from '../actions'
@@ -45,12 +46,14 @@ export default function ReviewPage() {
   const [isRating, setIsRating] = useState(false)
   const [nextDueTime, setNextDueTime] = useState<Date | null>(null)
   const [reviewTurn, setReviewTurn] = useState(0)
+  const [canUseBrowserTts, setCanUseBrowserTts] = useState(false)
 
   const currentItem = state.queue[0]
   const correctAnswer = currentItem
     ? currentItem.word.translation?.trim() || currentItem.word.definition
     : ''
   const isRevealed = selectedOption !== null
+  const canPlayPronunciation = Boolean(currentItem?.word.audio_url) || canUseBrowserTts
 
   const fetchNextDueTime = useCallback(async () => {
     const allDueQuery = await fetch('/api/next-due-word')
@@ -86,6 +89,10 @@ export default function ReviewPage() {
 
     fetchDueWords()
   }, [fetchNextDueTime])
+
+  useEffect(() => {
+    setCanUseBrowserTts(isBrowserTtsAvailable())
+  }, [])
 
   useEffect(() => {
     if (!currentItem) {
@@ -126,6 +133,11 @@ export default function ReviewPage() {
   const handlePlay = () => {
     if (currentItem?.word.audio_url) {
       new Audio(currentItem.word.audio_url).play().catch(() => {})
+      return
+    }
+
+    if (currentItem) {
+      speakAmerican(currentItem.word.word)
     }
   }
 
@@ -279,14 +291,14 @@ export default function ReviewPage() {
               <button
                 type="button"
                 onClick={handlePlay}
-                disabled={!currentItem.word.audio_url}
+                disabled={!canPlayPronunciation}
                 className={cn(
                   'flex items-center justify-center size-7 rounded-full transition-colors',
-                  currentItem.word.audio_url
+                  canPlayPronunciation
                     ? 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                     : 'text-muted-foreground/40 cursor-default'
                 )}
-                aria-label={currentItem.word.audio_url ? 'Play pronunciation' : 'Audio unavailable'}
+                aria-label={canPlayPronunciation ? 'Play pronunciation' : 'Audio unavailable'}
               >
                 <Volume2 className="size-4" />
               </button>

@@ -1,9 +1,11 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Bookmark, Volume2 } from 'lucide-react'
 import type { Word } from '@/types'
+import { isBrowserTtsAvailable, speakAmerican } from '@/lib/tts'
 import { cn } from '@/lib/utils'
 
 interface FlashCardProps {
@@ -25,10 +27,20 @@ export function FlashCard({
   isQuotaFull = false,
   dailyGoal,
 }: FlashCardProps) {
+  const [canUseBrowserTts, setCanUseBrowserTts] = useState(false)
+  const canPlayPronunciation = Boolean(word.audio_url) || canUseBrowserTts
+
+  useEffect(() => {
+    setCanUseBrowserTts(isBrowserTtsAvailable())
+  }, [])
+
   const handlePlay = () => {
     if (word.audio_url) {
       new Audio(word.audio_url).play().catch(() => {})
+      return
     }
+
+    speakAmerican(word.word)
   }
 
   return (
@@ -58,14 +70,14 @@ export function FlashCard({
           <button
             type="button"
             onClick={handlePlay}
-            disabled={!word.audio_url}
+            disabled={!canPlayPronunciation}
             className={cn(
               'flex items-center justify-center size-7 rounded-full transition-colors',
-              word.audio_url
+              canPlayPronunciation
                 ? 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                 : 'text-muted-foreground/40 cursor-default'
             )}
-            aria-label={word.audio_url ? 'Play pronunciation' : 'Audio unavailable'}
+            aria-label={canPlayPronunciation ? 'Play pronunciation' : 'Audio unavailable'}
           >
             <Volume2 className="size-4" />
           </button>

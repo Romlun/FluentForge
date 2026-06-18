@@ -7,6 +7,7 @@ import { ChevronLeft, Volume2, BookOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { EmptyState } from '@/components/ui/empty-state'
+import { isBrowserTtsAvailable, speakAmerican } from '@/lib/tts'
 import { cn } from '@/lib/utils'
 import {
   getWordById,
@@ -25,6 +26,7 @@ export default function WordDetailPage() {
   const [progress, setProgress] = useState<UserWordProgress | null>(null)
   const [loading, setLoading] = useState(true)
   const [removing, setRemoving] = useState(false)
+  const [canUseBrowserTts, setCanUseBrowserTts] = useState(false)
 
   useEffect(() => {
     if (!wordId) return
@@ -36,9 +38,18 @@ export default function WordDetailPage() {
       .finally(() => setLoading(false))
   }, [wordId])
 
+  useEffect(() => {
+    setCanUseBrowserTts(isBrowserTtsAvailable())
+  }, [])
+
   const handlePlay = () => {
     if (word?.audio_url) {
       new Audio(word.audio_url).play().catch(() => {})
+      return
+    }
+
+    if (word) {
+      speakAmerican(word.word)
     }
   }
 
@@ -103,6 +114,7 @@ export default function WordDetailPage() {
       ? ('difficult' as const)
       : progress.status
     : null
+  const canPlayPronunciation = Boolean(word.audio_url) || canUseBrowserTts
 
   return (
     <main className="min-h-screen p-4 pb-24 sm:p-8">
@@ -133,14 +145,14 @@ export default function WordDetailPage() {
               <button
                 type="button"
                 onClick={handlePlay}
-                disabled={!word.audio_url}
+                disabled={!canPlayPronunciation}
                 className={cn(
                   'flex items-center justify-center size-7 rounded-full transition-colors',
-                  word.audio_url
+                  canPlayPronunciation
                     ? 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                     : 'text-muted-foreground/40 cursor-default'
                 )}
-                aria-label={word.audio_url ? 'Play pronunciation' : 'Audio unavailable'}
+                aria-label={canPlayPronunciation ? 'Play pronunciation' : 'Audio unavailable'}
               >
                 <Volume2 className="size-4" />
               </button>

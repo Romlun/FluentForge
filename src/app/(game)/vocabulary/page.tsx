@@ -153,18 +153,23 @@ export default function VocabularyPage() {
     setCurrentIndex(0)
   }
 
+  const removeCurrentWordFromQueue = () => {
+    const wordId = currentWord.id
+    const nextLength = Math.max(0, words.length - 1)
+
+    setWords((prev) => prev.filter((word) => word.id !== wordId))
+    setTotalCount((prev) => Math.max(0, prev - 1))
+    setCurrentIndex((prev) => (nextLength === 0 ? 0 : Math.min(prev, nextLength - 1)))
+  }
+
   const handleAddWord = async () => {
     if (actionLoading) return
     try {
       setActionLoading(true)
       await addWord(currentWord.id)
-      setWordStatuses((prev) => ({
-        ...prev,
-        [currentWord.id]: { status: 'learning', step: 0 },
-      }))
       const newCount = todayCount + 1
       setTodayCount(newCount)
-      handleNext()
+      removeCurrentWordFromQueue()
     } catch (err) {
       console.error('Failed to add word:', err)
     } finally {
@@ -177,11 +182,7 @@ export default function VocabularyPage() {
     try {
       setActionLoading(true)
       await markKnown(currentWord.id)
-      setWordStatuses((prev) => ({
-        ...prev,
-        [currentWord.id]: { status: 'known', step: 0 },
-      }))
-      handleNext()
+      removeCurrentWordFromQueue()
     } catch (err) {
       console.error('Failed to mark word as known:', err)
     } finally {
@@ -238,8 +239,8 @@ export default function VocabularyPage() {
           <h1 className="text-2xl font-bold">Vocabulary</h1>
           <EmptyState
             icon={<BookOpen className="size-6" />}
-            heading="No words yet"
-            description="The word list is being built — check back soon."
+            heading="No new words left"
+            description="You've already added or marked every available word."
           />
         </div>
       </main>

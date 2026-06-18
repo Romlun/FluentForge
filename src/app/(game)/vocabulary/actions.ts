@@ -305,15 +305,20 @@ export async function getVocabularyWordsPage(
   limit: number
 ): Promise<VocabularyWordsPage> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('Not authenticated')
+
   const from = Math.max(0, offset)
   const pageSize = Math.max(1, limit)
 
   const { data, count, error } = await supabase
     .from('words')
     .select(
-      'id, word, translation, definition, part_of_speech, frequency_rank, example_sentence, image_url, audio_url, phonetic, tags, created_at',
+      'id, word, translation, definition, part_of_speech, frequency_rank, example_sentence, image_url, audio_url, phonetic, tags, created_at, user_word_progress!left(word_id)',
       { count: 'exact' }
     )
+    .is('user_word_progress.word_id', null)
     .order('frequency_rank', { ascending: true })
     .range(from, from + pageSize - 1)
 

@@ -169,18 +169,13 @@ export default async function DashboardPage() {
           <Link href="/vocabulary">
             <Button className="w-full h-11 rounded-xl gap-2 text-sm font-semibold">
               <BookOpen className="size-4" />
-              Continue learning
+              Learn New Words
             </Button>
           </Link>
           <Link href="/vocabulary/review">
-            <Button variant="outline" className="w-full h-11 rounded-xl gap-2 text-sm font-semibold">
+            <Button className="w-full h-11 rounded-xl gap-2 text-sm font-semibold">
               <RotateCcw className="size-4" />
-              Start review
-              {dueCount > 0 && (
-                <span className="ml-auto rounded-full bg-foreground px-1.5 py-0.5 text-[10px] font-bold text-background tabular-nums">
-                  {dueCount}
-                </span>
-              )}
+              Review Words
             </Button>
           </Link>
         </section>

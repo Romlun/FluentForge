@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { startOfTodayInTimeZone } from '@/lib/date'
+import type { Word } from '@/types'
 
 const SRS_LADDER: Record<number, number> = {
   0: 0,
@@ -43,6 +44,11 @@ export interface WordWithProgress {
 }
 
 export type ReviewOutcome = 'remember' | 'need_practice' | 'forgot'
+
+export interface VocabularyWordsPage {
+  words: Word[]
+  totalCount: number
+}
 
 export async function addWord(wordId: number): Promise<UserWordProgress> {
   const supabase = await createClient()
@@ -265,6 +271,70 @@ export async function getWordStatuses(): Promise<
     }
   }
   return map
+}
+
+export async function getWordStatusesForWords(
+  wordIds: number[]
+): Promise<Record<number, { status: 'learning' | 'known'; step: number }>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('Not authenticated')
+  if (wordIds.length === 0) return {}
+
+  const { data, error } = await supabase
+    .from('user_word_progress')
+    .select('word_id, status, step')
+    .eq('user_id', user.id)
+    .in('word_id', wordIds)
+
+  if (error) throw error
+
+  const map: Record<number, { status: 'learning' | 'known'; step: number }> = {}
+  for (const row of data || []) {
+    map[row.word_id] = {
+      status: row.status,
+      step: row.step,
+    }
+  }
+  return map
+}
+
+export async function getVocabularyWordsPage(
+  offset: number,
+  limit: number
+): Promise<VocabularyWordsPage> {
+  const supabase = await createClient()
+  const from = Math.max(0, offset)
+  const pageSize = Math.max(1, limit)
+
+  const { data, count, error } = await supabase
+    .from('words')
+    .select(
+      'id, word, translation, definition, part_of_speech, frequency_rank, example_sentence, image_url, audio_url, phonetic, tags, created_at',
+      { count: 'exact' }
+    )
+    .order('frequency_rank', { ascending: true })
+    .range(from, from + pageSize - 1)
+
+  if (error) throw error
+
+  return {
+    words: (data || []) as Word[],
+    totalCount: count || 0,
+  }
+}
+
+export async function getDailyNewLimit(): Promise<number> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('daily_new_limit')
+    .single()
+
+  if (error) return 10
+  return data?.daily_new_limit || 10
 }
 
 export async function getTodayAddedCount(): Promise<number> {

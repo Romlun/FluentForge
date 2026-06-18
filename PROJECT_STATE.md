@@ -176,6 +176,7 @@ _Verified against live Supabase `list_migrations` (2026-06-16) — supersedes th
   row(s)" need: write a Postgres function (`ORDER BY random() LIMIT n` works fine in real SQL)
   and call it via `supabase.rpc(...)` instead. See `get_random_distractor_translations` (added
   2026-06-16) for the pattern.
+- **RECURRING GOTCHA — PostgREST embedded left-join `.is('relation.column', null)` does not work as a "not exists" filter.** PostgREST returns an empty array `[]` for non-matching left joins, not `null`, so `.is('user_word_progress.word_id', null)` never fires. This caused the learn-queue filter (PR #26) to silently include all words regardless of user progress — fixed in PR #27 by fetching the user's existing word_id list first and applying `.not('id', 'in', (...))` instead. Pattern to follow for any "exclude rows where a related row exists" query: fetch the related IDs separately, then exclude with `.not()`. Do not rely on embedded join null-checks.
 - **2026-06-16 — Review session uses active-recall multiple-choice, not flip-card.** The
   GPT mockup showed a multiple-choice translation quiz (4 options, 3-way outcome: I forgot /
   Need practice / I remember) instead of the originally-shipped flip-card + binary Again/Got it.

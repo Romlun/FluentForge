@@ -312,14 +312,28 @@ export async function getVocabularyWordsPage(
   const from = Math.max(0, offset)
   const pageSize = Math.max(1, limit)
 
-  const { data, count, error } = await supabase
+  const { data: progressRows, error: progressError } = await supabase
+    .from('user_word_progress')
+    .select('word_id')
+    .eq('user_id', user.id)
+
+  if (progressError) throw progressError
+
+  const excludedIds = (progressRows || []).map((row) => row.word_id)
+
+  let query = supabase
     .from('words')
     .select(
-      'id, word, translation, definition, part_of_speech, frequency_rank, example_sentence, image_url, audio_url, phonetic, tags, created_at, user_word_progress!left(word_id)',
+      'id, word, translation, definition, part_of_speech, frequency_rank, example_sentence, image_url, audio_url, phonetic, tags, created_at',
       { count: 'exact' }
     )
-    .is('user_word_progress.word_id', null)
     .order('frequency_rank', { ascending: true })
+
+  if (excludedIds.length > 0) {
+    query = query.not('id', 'in', `(${excludedIds.join(',')})`)
+  }
+
+  const { data, count, error } = await query
     .range(from, from + pageSize - 1)
 
   if (error) throw error

@@ -1,15 +1,25 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { ProgressBar } from '@/components/ui/progress-bar'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FlashCard } from './FlashCard'
 import { BookOpen, ChevronLeft, ChevronRight } from 'lucide-react'
-import { addWord, markKnown, getTodayAddedCount, getWordStatuses, getDueWords } from './actions'
+import {
+  addWord,
+  markKnown,
+  getDailyNewLimit,
+  getDueWords,
+  getTodayAddedCount,
+  getVocabularyWordsPage,
+  getWordStatusesForWords,
+} from './actions'
 import type { Word } from '@/types'
+
+const PAGE_SIZE = 100
+const PREFETCH_THRESHOLD = 20
 
 interface WordStatusMap {
   [wordId: number]: { status: 'learning' | 'known'; step: number }
@@ -39,46 +49,67 @@ function WordSkeleton() {
 
 export default function VocabularyPage() {
   const [words, setWords] = useState<Word[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [wordStatuses, setWordStatuses] = useState<WordStatusMap>({})
   const [todayCount, setTodayCount] = useState(0)
   const [dailyLimit, setDailyLimit] = useState(10)
   const [actionLoading, setActionLoading] = useState(false)
   const [dueCount, setDueCount] = useState(0)
+  const pageRequestsRef = useRef<Map<number, Promise<void>>>(new Map())
+
+  const loadWordPage = useCallback((offset: number) => {
+    const existingRequest = pageRequestsRef.current.get(offset)
+    if (existingRequest) return existingRequest
+
+    const request = (async () => {
+      try {
+        setLoadingMore(true)
+        const page = await getVocabularyWordsPage(offset, PAGE_SIZE)
+        const statuses = await getWordStatusesForWords(page.words.map((word) => word.id))
+
+        setTotalCount(page.totalCount)
+        setWordStatuses((prev) => ({ ...prev, ...statuses }))
+        setWords((prev) => {
+          if (offset === 0) return page.words
+
+          const existingIds = new Set(prev.map((word) => word.id))
+          const nextWords = page.words.filter((word) => !existingIds.has(word.id))
+          return [...prev, ...nextWords]
+        })
+      } catch (err) {
+        pageRequestsRef.current.delete(offset)
+        throw err
+      } finally {
+        setLoadingMore(false)
+      }
+    })()
+
+    pageRequestsRef.current.set(offset, request)
+    return request
+  }, [])
 
   useEffect(() => {
     const fetchWords = async () => {
       try {
         setLoading(true)
-        const supabase = createClient()
-        const { data: wordData, error: fetchError } = await supabase
-          .from('words')
-          .select('*')
-          .order('frequency_rank', { ascending: true })
+        const wordPagePromise = loadWordPage(0)
+        const metadataPromise = Promise.all([
+          getTodayAddedCount(),
+          getDueWords(),
+          getDailyNewLimit(),
+        ])
+        const [, [count, dueWords, limit]] = await Promise.all([
+          wordPagePromise,
+          metadataPromise,
+        ])
 
-        if (fetchError) throw fetchError
-
-        setWords(wordData || [])
-
-        const statuses = await getWordStatuses()
-        setWordStatuses(statuses)
-
-        const count = await getTodayAddedCount()
         setTodayCount(count)
-
-        const dueWords = await getDueWords()
         setDueCount(dueWords.length)
-
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('daily_new_limit')
-          .single()
-
-        if (profileData?.daily_new_limit) {
-          setDailyLimit(profileData.daily_new_limit)
-        }
+        setDailyLimit(limit)
       } catch (err) {
         console.error('Failed to fetch words:', err)
         setError('Failed to load words. Please try again later.')
@@ -88,14 +119,38 @@ export default function VocabularyPage() {
     }
 
     fetchWords()
-  }, [])
+  }, [loadWordPage])
+
+  useEffect(() => {
+    if (loading || loadingMore || words.length >= totalCount) return
+    if (words.length - currentIndex > PREFETCH_THRESHOLD) return
+
+    loadWordPage(words.length).catch((err) => {
+      console.error('Failed to prefetch more words:', err)
+    })
+  }, [currentIndex, loadWordPage, loading, loadingMore, totalCount, words.length])
 
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev > 0 ? prev - 1 : words.length - 1))
   }
 
   const handleNext = () => {
-    setCurrentIndex((prev) => (prev < words.length - 1 ? prev + 1 : 0))
+    if (currentIndex < words.length - 1) {
+      setCurrentIndex((prev) => prev + 1)
+      return
+    }
+
+    if (words.length < totalCount) {
+      loadWordPage(words.length)
+        .then(() => setCurrentIndex((prev) => prev + 1))
+        .catch((err) => {
+          console.error('Failed to load more words:', err)
+          setError('Failed to load more words. Please try again later.')
+        })
+      return
+    }
+
+    setCurrentIndex(0)
   }
 
   const handleAddWord = async () => {
@@ -257,7 +312,7 @@ export default function VocabularyPage() {
           </Button>
 
           <span className="text-sm text-muted-foreground font-medium">
-            {currentIndex + 1} of {words.length}
+            {currentIndex + 1} of {totalCount}
           </span>
 
           <Button
@@ -265,8 +320,9 @@ export default function VocabularyPage() {
             size="sm"
             onClick={handleNext}
             className="gap-1.5"
+            disabled={loadingMore && currentIndex >= words.length - 1}
           >
-            Next
+            {loadingMore && currentIndex >= words.length - 1 ? 'Loading' : 'Next'}
             <ChevronRight className="size-4" />
           </Button>
         </div>
